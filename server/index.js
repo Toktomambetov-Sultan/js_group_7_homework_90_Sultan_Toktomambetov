@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const enableWs = require("express-ws");
 const schema = require("./Models.js");
+const { nanoid } = require("nanoid");
 
 const app = express();
 
@@ -23,31 +24,38 @@ const run = async () => {
   }
   console.log("Connected to mongodb.");
   app.use(cors());
-  app.use(express.json());
-  app.ws("/", async (ws, req) => {
-    const connection = new schema.Connection({ ws });
-    await connection.save();
-
+  const connections = {};
+  app.ws("/canvas", async (ws, req) => {
+    const id = nanoid();
+    connections[id] = ws;
     ws.on("message", async (msg) => {
       try {
         const data = JSON.parse(msg);
         switch (data.type) {
           case "CREATE_DOTS":
-            const dots = await schema.Dot.create(...data);
-            const connections = await schema.Connection.find();
-            connections.forEach((connection) => {
-              connection.ws.send({ type: "CREATE_DOTS", data: dots });
+            const dotsArray = await schema.DotsArray.create({
+              dots: data.dots,
+            });
+            Object.keys(connections).forEach((key) => {
+              connections[key].send(
+                JSON.stringify({
+                  type: "CREATE_DOTS",
+                  dots: dotsArray.dots,
+                })
+              );
             });
             break;
           case "INIT_CANVAS":
-            const dots = await schema.Dot.find();
-            const connections = await schema.Connection.find();
-            connections.forEach((connection) => {
-              connection.ws.send({ type: "INIT_CANVAS", data: dots });
-            });
+            const dotsArrays = await schema.DotsArray.find();
+            ws.send(
+              JSON.stringify({
+                type: "INIT_CANVAS",
+                dots: dotsArrays.map((array) => array.dots),
+              })
+            );
             break;
           default:
-            connection.ws.send(
+            ws.send(
               JSON.stringify({
                 error: "Unknown message type:" + data.type,
               })
@@ -55,6 +63,7 @@ const run = async () => {
             break;
         }
       } catch (error) {
+        console.log(error);
         connection.ws.send(
           JSON.stringify({
             error: {
@@ -67,9 +76,7 @@ const run = async () => {
     });
 
     ws.on("close", async (msg) => {
-      const response = await schema.Connection.findByIdAndDelete(
-        connection._id
-      );
+      delete connections[id];
     });
   });
 

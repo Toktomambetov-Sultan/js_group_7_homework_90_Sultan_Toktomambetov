@@ -1,12 +1,9 @@
 const mongoose = require("mongoose");
 
-const DotModel = require("./Models/DotModel");
-const ConnectionModel = require("./Models/ConnectionModel");
+const DotsArrayModel = require("./Models/DotModel");
 
-const Dot = mongoose.model("Dot", DotModel);
-const Connection = mongoose.model("Connection", ConnectionModel);
+const DotsArray = mongoose.model("DotsArray", DotsArrayModel);
 
 module.exports = {
-  Dot,
-  Connection,
+  DotsArray,
 };
